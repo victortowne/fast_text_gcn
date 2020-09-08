@@ -20,10 +20,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', '20ng', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
+flags.DEFINE_string('dataset', 'entity', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'gcn_appr', 'Model string.')  # 'gcn', 'gcn_appr'
 flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 200, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 500, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_float('dropout', 0.0, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.')
@@ -64,7 +64,7 @@ def main(rank1, rank0):
     # adj_test = adj[test_index, :][:, test_index]
     test_mask = test_mask[test_index]
     y_test = y_test[test_index]
-
+    best_acc = 0.0
     
     numNode_train_1 = adj_train.shape[1]
     numNode_train_0 = adj_train.shape[0]
@@ -123,6 +123,8 @@ def main(rank1, rank0):
 
     t = time.time()
     # Train model
+    last_improved = 0
+    #require_improvement = 
     for epoch in range(FLAGS.epochs):
         t1 = time.time()
 
@@ -157,13 +159,21 @@ def main(rank1, rank0):
         # Validation
         cost, acc, duration = evaluate(features, valSupport, y_val, val_mask, placeholders)
         cost_val.append(cost)
+        improved_str = ""
+        if acc > best_acc:
+            model.save(sess = sess)
+            best_acc = acc
+            improved_str = "*"
+            last_improved = epoch
 
         # # Print results
         print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
               "train_acc=", "{:.5f}".format(outs[2]), "val_loss=", "{:.5f}".format(cost),
-              "val_acc=", "{:.5f}".format(acc), "time=", "{:.5f}".format(time.time() - t1))
+              "val_acc=", "{:.5f}".format(acc), "time=", "{:.5f}".format(time.time() - t1),
+              "{}".format(improved_str))
 
-        if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping + 1):-1]):
+        #if epoch > FLAGS.early_stopping and cost_val[-1] > np.mean(cost_val[-(FLAGS.early_stopping + 1):-1]):
+        if epoch - last_improved > FLAGS.early_stopping:
             # print("Early stopping...")
             break
 

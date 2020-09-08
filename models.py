@@ -1,5 +1,6 @@
 from layers import *
 from metrics import *
+import os
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -70,6 +71,8 @@ class Model(object):
         if not sess:
             raise AttributeError("TensorFlow session not provided.")
         saver = tf.train.Saver(self.vars)
+        if not os.path.exists("./tmp"):
+            os.makedirs("tmp")
         save_path = saver.save(sess, "tmp/%s.ckpt" % self.name)
         print("Model saved in file: %s" % save_path)
 
