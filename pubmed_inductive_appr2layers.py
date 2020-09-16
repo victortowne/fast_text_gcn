@@ -5,6 +5,7 @@ import time
 import tensorflow as tf
 import scipy.sparse as sp
 import os
+from sklearn import metrics
 
 from utils import *
 from models import GCN, MLP, GCN_APPRO
@@ -27,10 +28,15 @@ flags.DEFINE_integer('epochs', 500, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_float('dropout', 0.0, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 0, 'Weight for L2 loss on embedding matrix.')
-flags.DEFINE_integer('early_stopping', 30, 'Tolerance for early stopping (# of epochs).')
+flags.DEFINE_integer('early_stopping', 50, 'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # Load data
 
+
+flabel = open("data/core/label.map", "r")
+label_lst = []
+for line in flabel:
+    label_lst.append(line.strip())
 
 def iterate_minibatches_listinputs(inputs, batchsize, shuffle=False):
     assert inputs is not None
@@ -107,8 +113,8 @@ def main(rank1, rank0):
     def evaluate(features, support, labels, mask, placeholders):
         t_test = time.time()
         feed_dict_val = construct_feed_dict(features, support, labels, mask, placeholders)
-        outs_val = sess.run([model.loss, model.accuracy], feed_dict=feed_dict_val)
-        return outs_val[0], outs_val[1], (time.time() - t_test)
+        outs_val = sess.run([model.loss, model.accuracy, model.preds, model.labels, model.probas], feed_dict=feed_dict_val)
+        return outs_val[0], outs_val[1], outs_val[2], outs_val[3], outs_val[4], (time.time() - t_test)
 
     # Init variables
     sess.run(tf.global_variables_initializer())
@@ -157,7 +163,7 @@ def main(rank1, rank0):
             outs = sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict)
 
         # Validation
-        cost, acc, duration = evaluate(features, valSupport, y_val, val_mask, placeholders)
+        cost, acc, preds, labels, probas, duration = evaluate(features, valSupport, y_val, val_mask, placeholders)
         cost_val.append(cost)
         improved_str = ""
         if acc > best_acc:
@@ -179,10 +185,27 @@ def main(rank1, rank0):
 
     train_duration = time.time() - t
     # Testing
-    test_cost, test_acc, test_duration = evaluate(features, testSupport, y_test, test_mask,
+    model.load(sess)#加载训练过程保存的最优模型
+    test_cost, test_acc, preds, labels, probas, test_duration = evaluate(features, testSupport, y_test, test_mask,
                                                   placeholders)
     print("rank1 = {}".format(rank1), "rank0 = {}".format(rank0), "cost=", "{:.5f}".format(test_cost),
           "accuracy=", "{:.5f}".format(test_acc), "training time per epoch=", "{:.5f}".format(train_duration/epoch))
+    test_pred = []
+    test_labels = []
+    f = open("./test.out1", "w")
+    for i in range(len(test_mask)):
+        if test_mask[i]:
+            test_pred.append(preds[i])
+            test_labels.append(labels[i])
+            pred = label_lst[int(preds[i])]
+            real = label_lst[int(labels[i])]
+            f.write(str(pred) + "\t" + str(real) + "\t" + str(probas[i]) + "\n")
+    print("Test Precision, Recall and F1-Score...")
+    print(metrics.classification_report(test_labels, test_pred, digits=4))
+    print("Macro average Test Precision, Recall and F1-Score...")
+    print(metrics.precision_recall_fscore_support(test_labels, test_pred, average='macro'))
+    print("Micro average Test Precision, Recall and F1-Score...")
+    print(metrics.precision_recall_fscore_support(test_labels, test_pred, average='micro'))
 
 
 if __name__=="__main__":

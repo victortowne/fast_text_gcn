@@ -207,6 +207,10 @@ class GCN_APPRO(Model):
 
     def _accuracy(self):
         self.accuracy = accuracy(self.outputs, self.placeholders['labels'])
+        self.preds = tf.argmax(self.outputs, 1)
+        self.labels = tf.argmax(self.placeholders['labels'], 1)
+        softmax_out = tf.nn.softmax(self.outputs)
+        self.probas = tf.reduce_max(softmax_out, 1)
 
     def _build(self):
         # appr_support = self.placeholders['support'][0]
@@ -305,6 +309,10 @@ class GCN_APPRO_Onelayer(Model):
     def _accuracy(self):
         self.accuracy = masked_accuracy(self.outputs, self.placeholders['labels'],
                                         self.placeholders['labels_mask'])
+        self.preds = tf.argmax(self.outputs, 1)
+        softmax_out = tf.nn.softmax(self.outputs)
+        self.probas = tf.reduce_max(softmax_out)
+        self.labels = tf.argmax(self.placeholders['labels'], 1)
 
     def _build(self):
         appr_support = self.placeholders['support'][0]
