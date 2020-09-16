@@ -186,7 +186,7 @@ class GCN(Model):
 class GCN_APPRO(Model):
     def __init__(self, placeholders, input_dim, **kwargs):
         super(GCN_APPRO, self).__init__(**kwargs)
-        self.inputs = placeholders['features']
+        self.inputs = placeholders['features'] #输入特征向量
         self.input_dim = input_dim
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
         self.output_dim = placeholders['labels'].get_shape().as_list()[1]
@@ -207,6 +207,8 @@ class GCN_APPRO(Model):
 
     def _accuracy(self):
         self.accuracy = accuracy(self.outputs, self.placeholders['labels'])
+        self.preds = tf.argmax(self.outputs, 1) #预测的标签
+        self.labels = tf.argmax(self.placeholders['labels'], 1) #实际标签
 
     def _build(self):
         # appr_support = self.placeholders['support'][0]
