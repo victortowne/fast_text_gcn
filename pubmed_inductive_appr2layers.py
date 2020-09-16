@@ -48,8 +48,8 @@ def iterate_minibatches_listinputs(inputs, batchsize, shuffle=False):
 def main(rank1, rank0):
     #adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(FLAGS.dataset)
     adj, features, y_train, y_val, y_test, y_vocab, train_mask, val_mask, test_mask, vocab_mask, _, _ = load_corpus(FLAGS.dataset)
-    train_index = np.where(train_mask)[0]
-    vocab_index = np.where(vocab_mask)[0]
+    train_index = np.where(train_mask)[0] #训练数据下标
+    vocab_index = np.where(vocab_mask)[0] #词典下标
     tmp_index = list(train_index) + list(vocab_index)
     adj_train = adj[train_index, :][:, tmp_index]
     adj_train_vocab = adj[tmp_index, :][:, tmp_index]
@@ -72,7 +72,7 @@ def main(rank1, rank0):
 
     # Some preprocessing
     features = nontuple_preprocess_features(features).todense()
-    train_features = features[tmp_index]
+    train_features = features[tmp_index] #训练数据特征向量
 
     if FLAGS.model == 'gcn_appr':
         normADJ_train = nontuple_preprocess_adj(adj_train)
